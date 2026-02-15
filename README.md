@@ -275,10 +275,21 @@ Creates a tunnel and returns a `TunnelInstance`.
 
 ## Environment Variables
 
+### Client
+
 | Variable                 | Description                                      |
 |--------------------------|--------------------------------------------------|
 | `EXPOSE_TUNNEL_SERVER`   | Relay server WebSocket URL (e.g., `wss://tunnel.yourdomain.com`) |
 | `EXPOSE_TUNNEL_API_KEY`  | API key for authenticating with the relay server |
+
+### Relay Server
+
+| Variable          | Description                                              | Default                    |
+|-------------------|----------------------------------------------------------|----------------------------|
+| `RELAY_PORT`      | Port the relay server listens on                         | `4040`                     |
+| `API_KEYS`        | Comma-separated list of valid API keys                   | (required)                 |
+| `TUNNEL_DOMAIN`   | Base domain for tunnel subdomains                        | `tunnel.gagandeep023.com`  |
+| `MAX_TUNNELS`     | Maximum number of concurrent tunnel connections allowed  | `10`                       |
 
 ## Self-Hosting the Relay Server
 
@@ -312,6 +323,7 @@ Create `.env`:
 RELAY_PORT=4040
 API_KEYS=sk_your_generated_key
 TUNNEL_DOMAIN=tunnel.yourdomain.com
+MAX_TUNNELS=10
 ```
 
 Generate an API key:
@@ -345,7 +357,7 @@ pm2 start start.js --name expose-tunnel-relay
 
 ```bash
 curl https://tunnel.yourdomain.com/health
-# { "status": "ok", "tunnels": 0 }
+# { "status": "ok", "tunnels": 0, "maxTunnels": 10 }
 ```
 
 ## TypeScript
