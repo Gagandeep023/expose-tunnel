@@ -1,5 +1,5 @@
 {
-  "name": "gagandeep023-expose-tunnel",
+  "name": "@gagandeep023/expose-tunnel",
   "version": "0.1.0",
   "description": "Self-hosted tunnel to expose local servers to the internet via gagandeep023.com subdomains",
   "main": "dist/index.js",
@@ -13,7 +13,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
-    }
+    },
+    "./dist/server/index.js": "./dist/server/index.js"
   },
   "files": [
     "dist"
@@ -39,13 +40,16 @@
   ],
   "author": "Gagandeep Bhatia <gagandeepbhatia2303@gmail.com>",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Gagandeep023/gagandeep023-expose-tunnel.git"
+    "url": "git+https://github.com/Gagandeep023/expose-tunnel.git"
   },
-  "homepage": "https://github.com/Gagandeep023/gagandeep023-expose-tunnel#readme",
+  "homepage": "https://github.com/Gagandeep023/expose-tunnel#readme",
   "bugs": {
-    "url": "https://github.com/Gagandeep023/gagandeep023-expose-tunnel/issues"
+    "url": "https://github.com/Gagandeep023/expose-tunnel/issues"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",

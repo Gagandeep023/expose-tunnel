@@ -109,7 +109,7 @@ export class RelayServer {
         return;
       }
       res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('gagandeep023-expose-tunnel relay server');
+      res.end('@gagandeep023/expose-tunnel relay server');
       return;
     }
 

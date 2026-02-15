@@ -1,9 +1,9 @@
-# gagandeep023-expose-tunnel
+# @gagandeep023/expose-tunnel
 
 A self-hosted tunnel to expose local servers to the internet via `*.tunnel.gagandeep023.com` subdomains. An alternative to ngrok and localtunnel that runs on your own infrastructure.
 
-[![npm version](https://img.shields.io/npm/v/gagandeep023-expose-tunnel.svg)](https://www.npmjs.com/package/gagandeep023-expose-tunnel)
-[![license](https://img.shields.io/npm/l/gagandeep023-expose-tunnel.svg)](https://github.com/Gagandeep023/gagandeep023-expose-tunnel/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/@gagandeep023/expose-tunnel.svg)](https://www.npmjs.com/package/@gagandeep023/expose-tunnel)
+[![license](https://img.shields.io/npm/l/@gagandeep023/expose-tunnel.svg)](https://github.com/Gagandeep023/expose-tunnel/blob/main/LICENSE)
 
 ## How It Works
 
@@ -23,7 +23,7 @@ Your Machine                    EC2 Relay Server                Internet
 ## Installation
 
 ```bash
-npm install gagandeep023-expose-tunnel
+npm install @gagandeep023/expose-tunnel
 ```
 
 ## Quick Start
@@ -35,10 +35,10 @@ npm install gagandeep023-expose-tunnel
 export EXPOSE_TUNNEL_API_KEY=sk_your_key_here
 
 # Expose port 3000
-npx gagandeep023-expose-tunnel --port 3000
+npx @gagandeep023/expose-tunnel --port 3000
 
 # With a custom subdomain
-npx gagandeep023-expose-tunnel --port 3000 --subdomain myapp
+npx @gagandeep023/expose-tunnel --port 3000 --subdomain myapp
 
 # Output:
 # [expose-tunnel] Tunnel established!
@@ -50,7 +50,7 @@ npx gagandeep023-expose-tunnel --port 3000 --subdomain myapp
 ### Programmatic API
 
 ```typescript
-import { exposeTunnel } from 'gagandeep023-expose-tunnel';
+import { exposeTunnel } from '@gagandeep023/expose-tunnel';
 
 const tunnel = await exposeTunnel({
   port: 3000,
@@ -122,7 +122,7 @@ Creates a tunnel and returns a `TunnelInstance`.
 For more control, use the `TunnelClient` class directly:
 
 ```typescript
-import { TunnelClient } from 'gagandeep023-expose-tunnel';
+import { TunnelClient } from '@gagandeep023/expose-tunnel';
 
 const client = new TunnelClient({
   port: 3000,
@@ -154,16 +154,31 @@ The package includes a relay server you can deploy on your own infrastructure.
 
 ### Setup
 
-1. Clone and build:
+1. Install the package:
 
 ```bash
-git clone https://github.com/Gagandeep023/gagandeep023-expose-tunnel.git
-cd gagandeep023-expose-tunnel
-npm install
-npm run build
+mkdir expose-tunnel-server && cd expose-tunnel-server
+npm init -y
+npm install @gagandeep023/expose-tunnel
 ```
 
-2. Configure environment:
+2. Create a startup script (`start.js`):
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+// Load .env
+const envFile = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
+envFile.split('\n').forEach(line => {
+  const [key, ...val] = line.split('=');
+  if (key && val.length) process.env[key.trim()] = val.join('=').trim();
+});
+
+require('@gagandeep023/expose-tunnel/dist/server/index.js');
+```
+
+3. Configure environment:
 
 ```bash
 # .env
@@ -172,22 +187,22 @@ API_KEYS=sk_your_generated_key
 TUNNEL_DOMAIN=tunnel.yourdomain.com
 ```
 
-3. Generate an API key:
+4. Generate an API key:
 
 ```bash
 node -e "console.log('sk_' + require('crypto').randomBytes(24).toString('hex'))"
 ```
 
-4. Start the relay server:
+5. Start the relay server:
 
 ```bash
-node dist/server/index.js
+node start.js
 
 # Or with PM2:
-pm2 start dist/server/index.js --name expose-tunnel-relay
+pm2 start start.js --name expose-tunnel-relay
 ```
 
-5. Configure Nginx (wildcard reverse proxy):
+6. Configure Nginx (wildcard reverse proxy):
 
 ```nginx
 server {
@@ -212,7 +227,7 @@ server {
 }
 ```
 
-6. Set up wildcard SSL with Let's Encrypt:
+7. Set up wildcard SSL with Let's Encrypt:
 
 ```bash
 sudo certbot certonly --manual --preferred-challenges dns \
@@ -231,7 +246,7 @@ curl https://tunnel.yourdomain.com/health
 Full TypeScript support with exported types:
 
 ```typescript
-import type { TunnelOptions, TunnelInstance, TunnelRequest, TunnelResponse } from 'gagandeep023-expose-tunnel';
+import type { TunnelOptions, TunnelInstance, TunnelRequest, TunnelResponse } from '@gagandeep023/expose-tunnel';
 ```
 
 ## License
