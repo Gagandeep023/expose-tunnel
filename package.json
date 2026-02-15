@@ -1,0 +1,64 @@
+{
+  "name": "gagandeep023-expose-tunnel",
+  "version": "0.1.0",
+  "description": "Self-hosted tunnel to expose local servers to the internet via gagandeep023.com subdomains",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "expose-tunnel": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "prepublishOnly": "npm run build",
+    "start:server": "node dist/server/index.js"
+  },
+  "keywords": [
+    "tunnel",
+    "ngrok",
+    "localtunnel",
+    "expose",
+    "localhost",
+    "websocket",
+    "proxy",
+    "self-hosted"
+  ],
+  "author": "Gagandeep Bhatia <gagandeepbhatia2303@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gagandeep023/gagandeep023-expose-tunnel.git"
+  },
+  "homepage": "https://github.com/Gagandeep023/gagandeep023-expose-tunnel#readme",
+  "bugs": {
+    "url": "https://github.com/Gagandeep023/gagandeep023-expose-tunnel/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "eslint": "^9.39.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "ws": "^8.19.0"
+  }
+}
