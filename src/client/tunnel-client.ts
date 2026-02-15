@@ -4,7 +4,6 @@ import { EventEmitter } from 'node:events';
 import { TunnelOptions, TunnelInstance, TunnelRequest, TunnelResponse, WSMessage } from '../types';
 import { logger } from '../utils/logger';
 
-const DEFAULT_SERVER = 'wss://tunnel.gagandeep023.com';
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_BASE_DELAY = 1000;
 
@@ -20,11 +19,15 @@ export class TunnelClient extends EventEmitter {
 
   constructor(options: TunnelOptions) {
     super();
+    const server = options.server || process.env.EXPOSE_TUNNEL_SERVER;
+    if (!server) {
+      throw new Error('Relay server URL required. Pass server option or set EXPOSE_TUNNEL_SERVER env var.');
+    }
     this.options = {
       port: options.port,
       host: options.host || 'localhost',
       subdomain: options.subdomain || '',
-      server: options.server || DEFAULT_SERVER,
+      server,
       apiKey: options.apiKey || process.env.EXPOSE_TUNNEL_API_KEY || '',
       localHost: options.localHost || 'localhost',
     };

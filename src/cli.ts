@@ -6,14 +6,20 @@ const program = new Command();
 
 program
   .name('expose-tunnel')
-  .description('Expose local servers to the internet via gagandeep023.com subdomains')
-  .version('0.1.0')
+  .description('Expose local servers to the internet via your own relay server')
+  .version('0.3.0')
   .requiredOption('-p, --port <number>', 'Local port to expose')
   .option('-s, --subdomain <name>', 'Request a specific subdomain')
-  .option('--server <url>', 'Relay server URL', 'wss://tunnel.gagandeep023.com')
+  .option('--server <url>', 'Relay server WebSocket URL (or set EXPOSE_TUNNEL_SERVER env var)')
   .option('--api-key <key>', 'API key (or set EXPOSE_TUNNEL_API_KEY env var)')
   .option('--local-host <host>', 'Local hostname to proxy to', 'localhost')
   .action(async (opts) => {
+    const server = opts.server || process.env.EXPOSE_TUNNEL_SERVER;
+    if (!server) {
+      logger.error('Relay server URL required. Use --server <url> or set EXPOSE_TUNNEL_SERVER env var.');
+      process.exit(1);
+    }
+
     const apiKey = opts.apiKey || process.env.EXPOSE_TUNNEL_API_KEY;
     if (!apiKey) {
       logger.error('API key required. Use --api-key or set EXPOSE_TUNNEL_API_KEY env var.');
@@ -30,7 +36,7 @@ program
       const tunnel = await exposeTunnel({
         port,
         subdomain: opts.subdomain,
-        server: opts.server,
+        server,
         apiKey,
         localHost: opts.localHost,
       });
