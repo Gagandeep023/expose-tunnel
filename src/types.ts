@@ -33,6 +33,7 @@ export interface RelayServerConfig {
   port: number;
   apiKeys: string[];
   domain: string;
+  maxTunnels: number;
 }
 
 export type WSMessage =

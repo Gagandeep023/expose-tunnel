@@ -7,7 +7,7 @@ const program = new Command();
 program
   .name('expose-tunnel')
   .description('Expose local servers to the internet via your own relay server')
-  .version('0.3.0')
+  .version('0.4.0')
   .requiredOption('-p, --port <number>', 'Local port to expose')
   .option('-s, --subdomain <name>', 'Request a specific subdomain')
   .option('--server <url>', 'Relay server WebSocket URL (or set EXPOSE_TUNNEL_SERVER env var)')

@@ -53,6 +53,14 @@ export class RelayServer {
         return;
       }
 
+      if (this.tunnels.size >= this.config.maxTunnels) {
+        socket.write('HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n\r\n' +
+          JSON.stringify({ error: 'Max tunnel limit reached', limit: this.config.maxTunnels }));
+        socket.destroy();
+        logger.info(`Connection rejected: max tunnel limit (${this.config.maxTunnels}) reached`);
+        return;
+      }
+
       this.wss.handleUpgrade(req, socket, head, (ws) => {
         this.handleWebSocketConnection(ws, req);
       });
@@ -64,7 +72,7 @@ export class RelayServer {
       this.server.listen(this.config.port, () => {
         logger.success(`Relay server listening on port ${this.config.port}`);
         logger.info(`Domain: ${this.config.domain}`);
-        logger.info(`Active tunnels: ${this.tunnels.size}`);
+        logger.info(`Max tunnels: ${this.config.maxTunnels}`);
         resolve();
       });
     });
@@ -105,7 +113,7 @@ export class RelayServer {
     if (!subdomain || subdomain === 'tunnel') {
       if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', tunnels: this.tunnels.size }));
+        res.end(JSON.stringify({ status: 'ok', tunnels: this.tunnels.size, maxTunnels: this.config.maxTunnels }));
         return;
       }
       res.writeHead(200, { 'Content-Type': 'text/plain' });

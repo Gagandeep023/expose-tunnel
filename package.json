@@ -1,6 +1,6 @@
 {
   "name": "@gagandeep023/expose-tunnel",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Self-hosted tunnel to expose local servers to the internet. An ngrok/localtunnel alternative you run on your own infrastructure.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
