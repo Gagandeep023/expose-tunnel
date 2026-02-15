@@ -1,6 +1,6 @@
 {
   "name": "@gagandeep023/expose-tunnel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Self-hosted tunnel to expose local servers to the internet via gagandeep023.com subdomains",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -17,7 +17,8 @@
     "./dist/server/index.js": "./dist/server/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "SELF-HOSTING-GUIDE.md"
   ],
   "scripts": {
     "build": "tsup",
