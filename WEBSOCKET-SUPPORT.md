@@ -1,13 +1,20 @@
-# Adding WebSocket passthrough to expose-tunnel (v0.4.x → v0.5.0)
+# WebSocket passthrough design notes (implemented in v0.5.0)
 
-> Make the tunnel forward **WebSocket upgrades** (Socket.IO, raw `ws`) end-to-end, so
-> `wss://<sub>.tunnel.gagandeep023.com` works — not just plain HTTP.
-> This spec is written against the **actual source** in this repo: `src/types.ts`,
+> **Status: shipped.** WebSocket passthrough landed in **v0.5.0** and is live on the relay.
+> This file is kept as the design record for how it works; it is no longer a to-do list.
+> Sections written in the future tense describe the change as it was planned. Section 1
+> describes the pre-0.5.0 behaviour and is kept for context.
+>
+> The tunnel forwards **WebSocket upgrades** (Socket.IO, raw `ws`) end-to-end, so
+> `wss://<sub>.tunnel.gagandeep023.com` works alongside plain HTTP.
+> Written against the source in this repo: `src/types.ts`,
 > `src/server/relay-server.ts`, `src/client/tunnel-client.ts`.
+> User-facing docs live in `README.md` ("WebSocket Support"); relay/nginx setup lives in
+> `SELF-HOSTING-GUIDE.md`.
 
 ---
 
-## 1. Why it fails today (exact line)
+## 1. Why it failed before 0.5.0 (exact line)
 
 The tunnel is a pure HTTP request/response proxy. In **`src/server/relay-server.ts`**, the upgrade handler
 only accepts the tunnel client's own control connection and **destroys every other upgrade**:
@@ -342,11 +349,11 @@ node -e 'const {io}=require("socket.io-client");const s=io("https://adani-alpha-
 
 ---
 
-## 9. Interim unblock (no code change)
+## 9. Shipped
 
-Until 0.5.0 ships, run a WS-native tunnel for the socket port only and hand the FE that URL:
-```bash
-cloudflared tunnel --url http://localhost:8080   # -> https://<random>.trycloudflare.com (WS works)
-```
-Keep the API on `adani-alpha-api.tunnel.gagandeep023.com`; move the chat socket back to your own tunnel
-once 0.5.0 is deployed.
+v0.5.0 is published to npm and deployed to the relay, so no third-party workaround is needed any more.
+The earlier interim advice (running `cloudflared` for the socket port) no longer applies.
+
+Both ends must be on 0.5.0 or later — the new message types are a matched pair. If a client still
+falls back to HTTP polling, it is running an older build: clear the npx cache (`rm -rf ~/.npm/_npx`)
+or pin the version explicitly.

@@ -159,7 +159,7 @@ pm2 startup
 
 ```bash
 curl http://localhost:4040/health
-# Expected: {"status":"ok","tunnels":0}
+# Expected: {"status":"ok","tunnels":0,"maxTunnels":10}
 ```
 
 ---
@@ -206,7 +206,7 @@ sudo systemctl reload nginx
 
 ```bash
 curl http://tunnel.yourdomain.com/health
-# Expected: {"status":"ok","tunnels":0}
+# Expected: {"status":"ok","tunnels":0,"maxTunnels":10}
 ```
 
 ---
@@ -324,7 +324,7 @@ sudo systemctl reload nginx
 
 ```bash
 curl https://tunnel.yourdomain.com/health
-# Expected: {"status":"ok","tunnels":0}
+# Expected: {"status":"ok","tunnels":0,"maxTunnels":10}
 ```
 
 ---

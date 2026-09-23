@@ -1,13 +1,14 @@
 import { Command } from 'commander';
 import { exposeTunnel } from './client/tunnel-client';
 import { logger } from './utils/logger';
+import { version } from '../package.json';
 
 const program = new Command();
 
 program
   .name('expose-tunnel')
   .description('Expose local servers to the internet via your own relay server')
-  .version('0.4.0')
+  .version(version)
   .requiredOption('-p, --port <number>', 'Local port to expose')
   .option('-s, --subdomain <name>', 'Request a specific subdomain')
   .option('--server <url>', 'Relay server WebSocket URL (or set EXPOSE_TUNNEL_SERVER env var)')
