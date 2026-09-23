@@ -13,6 +13,8 @@ export class TunnelClient extends EventEmitter {
   private reconnectAttempts = 0;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private closed = false;
+  private localWs: Map<string, WebSocket> = new Map();
+  private localWsBuffer: Map<string, Array<{ binary: boolean; data: string }>> = new Map();
 
   url = '';
   subdomain = '';
@@ -62,6 +64,7 @@ export class TunnelClient extends EventEmitter {
 
   async close(): Promise<void> {
     this.closed = true;
+    this.closeAllLocalWs();
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
@@ -96,6 +99,36 @@ export class TunnelClient extends EventEmitter {
             this.handleTunnelRequest(message.request);
             break;
 
+          case 'tunnel-ws-open':
+            this.openLocalWs(message.connId, message.path, message.headers, message.protocol);
+            break;
+
+          case 'tunnel-ws-data': {
+            const { connId, binary, data: frameData } = message.frame;
+            const localWs = this.localWs.get(connId);
+            if (localWs && localWs.readyState === WebSocket.OPEN) {
+              localWs.send(binary ? Buffer.from(frameData, 'base64') : frameData);
+            } else if (this.localWsBuffer.has(connId)) {
+              this.localWsBuffer.get(connId)?.push({ binary, data: frameData });
+            }
+            break;
+          }
+
+          case 'tunnel-ws-close':
+          case 'tunnel-ws-error': {
+            const localWs = this.localWs.get(message.connId);
+            if (localWs) {
+              try {
+                localWs.close();
+              } catch {
+                localWs.terminate();
+              }
+            }
+            this.localWs.delete(message.connId);
+            this.localWsBuffer.delete(message.connId);
+            break;
+          }
+
           case 'ping':
             this.ws?.send(JSON.stringify({ type: 'pong' }));
             break;
@@ -115,6 +148,9 @@ export class TunnelClient extends EventEmitter {
         clearInterval(this.heartbeatInterval);
         this.heartbeatInterval = null;
       }
+
+      // External WS bridges do not survive a control reconnect
+      this.closeAllLocalWs();
 
       if (!this.closed && assigned) {
         logger.info('Connection lost. Attempting to reconnect...');
@@ -204,6 +240,86 @@ export class TunnelClient extends EventEmitter {
 
       proxyReq.end();
     });
+  }
+
+  private openLocalWs(
+    connId: string,
+    path: string,
+    reqHeaders: Record<string, string>,
+    protocol?: string
+  ): void {
+    const headers: Record<string, string> = { ...reqHeaders };
+    // The ws client performs its own handshake; drop hop-by-hop and handshake headers
+    for (const header of [
+      'sec-websocket-key',
+      'sec-websocket-version',
+      'sec-websocket-accept',
+      'sec-websocket-extensions',
+      'sec-websocket-protocol',
+      'upgrade',
+      'connection',
+      'host',
+    ]) {
+      delete headers[header];
+    }
+
+    const target = `ws://${this.options.localHost}:${this.options.port}${path}`;
+    const localWs = protocol
+      ? new WebSocket(target, protocol, { headers })
+      : new WebSocket(target, { headers });
+
+    this.localWs.set(connId, localWs);
+    this.localWsBuffer.set(connId, []);
+
+    const send = (message: WSMessage): void => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify(message));
+      }
+    };
+
+    localWs.on('open', () => {
+      for (const frame of this.localWsBuffer.get(connId) ?? []) {
+        localWs.send(frame.binary ? Buffer.from(frame.data, 'base64') : frame.data);
+      }
+      this.localWsBuffer.delete(connId);
+      logger.info(`WS connected: ${path}`);
+    });
+
+    localWs.on('message', (data: Buffer, isBinary: boolean) => {
+      send({
+        type: 'tunnel-ws-data',
+        frame: {
+          connId,
+          binary: isBinary,
+          data: isBinary ? data.toString('base64') : data.toString('utf8'),
+        },
+      });
+    });
+
+    localWs.on('close', (code, reason) => {
+      send({ type: 'tunnel-ws-close', connId, code, reason: reason.toString() });
+      this.localWs.delete(connId);
+      this.localWsBuffer.delete(connId);
+    });
+
+    localWs.on('error', (err) => {
+      send({ type: 'tunnel-ws-error', connId, message: err.message });
+      this.localWs.delete(connId);
+      this.localWsBuffer.delete(connId);
+      logger.error(`WS error on ${path}: ${err.message}`);
+    });
+  }
+
+  private closeAllLocalWs(): void {
+    for (const localWs of this.localWs.values()) {
+      try {
+        localWs.close();
+      } catch {
+        localWs.terminate();
+      }
+    }
+    this.localWs.clear();
+    this.localWsBuffer.clear();
   }
 
   private sendResponse(response: TunnelResponse): void {

@@ -20,6 +20,23 @@ Your Machine                    Your Relay Server                Internet
 3. When external traffic hits that subdomain, the relay server pipes it through the WebSocket to your machine
 4. Your client forwards the request to `localhost:<port>` and sends the response back
 
+## WebSocket Support
+
+Since v0.5.0, WebSocket upgrades pass through end to end, so `wss://<subdomain>.tunnel.yourdomain.com`
+works alongside plain HTTP. Socket.IO and raw `ws` clients connect over the `websocket` transport instead
+of falling back to HTTP polling.
+
+Each external WebSocket connection is multiplexed over the same control connection with its own
+connection id. Text and binary frames both round-trip, and closes propagate in both directions. When the
+tunnel client disconnects, every bridged socket is closed; clients that auto-reconnect (like Socket.IO)
+re-handshake on their own.
+
+Requires both the relay server and the client to run v0.5.0 or later. Your relay's reverse proxy must
+forward upgrades (`proxy_http_version 1.1`, `Upgrade`/`Connection` headers) and use a long
+`proxy_read_timeout` so idle sockets are not cut. See SELF-HOSTING-GUIDE.md.
+
+Raw TCP/TLS tunneling is still out of scope; this covers WebSockets carried over HTTP.
+
 ## Installation
 
 ```bash

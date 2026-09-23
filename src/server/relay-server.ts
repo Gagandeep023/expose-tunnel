@@ -20,6 +20,7 @@ interface TunnelConnection {
   subdomain: string;
   heartbeat: NodeJS.Timeout;
   alive: boolean;
+  wsConns: Map<string, WebSocket>;
 }
 
 export class RelayServer {
@@ -27,6 +28,7 @@ export class RelayServer {
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private server: http.Server;
   private wss: WebSocketServer;
+  private externalWss: WebSocketServer;
   private config: RelayServerConfig;
 
   constructor(config: RelayServerConfig) {
@@ -37,32 +39,45 @@ export class RelayServer {
     });
 
     this.wss = new WebSocketServer({ noServer: true });
+    this.externalWss = new WebSocketServer({ noServer: true });
 
     this.server.on('upgrade', (req, socket, head) => {
       const url = new URL(req.url || '/', `http://${req.headers.host}`);
+      const subdomain = this.extractSubdomain(req.headers.host || '');
 
-      if (url.pathname !== '/tunnel') {
+      // Control connection from a tunnel client (base domain, /tunnel)
+      if (url.pathname === '/tunnel' && (!subdomain || subdomain === 'tunnel')) {
+        const apiKey = req.headers['x-api-key'] as string | undefined;
+        if (!validateApiKey(apiKey, this.config.apiKeys)) {
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        if (this.tunnels.size >= this.config.maxTunnels) {
+          socket.write('HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n\r\n' +
+            JSON.stringify({ error: 'Max tunnel limit reached', limit: this.config.maxTunnels }));
+          socket.destroy();
+          logger.info(`Connection rejected: max tunnel limit (${this.config.maxTunnels}) reached`);
+          return;
+        }
+
+        this.wss.handleUpgrade(req, socket, head, (ws) => {
+          this.handleWebSocketConnection(ws, req);
+        });
+        return;
+      }
+
+      // External WebSocket upgrade on a tunnel subdomain: bridge it to the client
+      const conn = subdomain ? this.tunnels.get(subdomain) : undefined;
+      if (!conn || conn.ws.readyState !== WebSocket.OPEN) {
+        socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
         socket.destroy();
         return;
       }
 
-      const apiKey = req.headers['x-api-key'] as string | undefined;
-      if (!validateApiKey(apiKey, this.config.apiKeys)) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
-      }
-
-      if (this.tunnels.size >= this.config.maxTunnels) {
-        socket.write('HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n\r\n' +
-          JSON.stringify({ error: 'Max tunnel limit reached', limit: this.config.maxTunnels }));
-        socket.destroy();
-        logger.info(`Connection rejected: max tunnel limit (${this.config.maxTunnels}) reached`);
-        return;
-      }
-
-      this.wss.handleUpgrade(req, socket, head, (ws) => {
-        this.handleWebSocketConnection(ws, req);
+      this.externalWss.handleUpgrade(req, socket, head, (browserWs) => {
+        this.bridgeExternalWs(conn, browserWs, req);
       });
     });
   }
@@ -82,6 +97,10 @@ export class RelayServer {
     // Close all tunnel connections
     for (const [, conn] of this.tunnels) {
       clearInterval(conn.heartbeat);
+      for (const browserWs of conn.wsConns.values()) {
+        this.closeSocket(browserWs, 1001, 'server shutting down');
+      }
+      conn.wsConns.clear();
       conn.ws.close();
     }
     this.tunnels.clear();
@@ -97,9 +116,11 @@ export class RelayServer {
     this.pendingRequests.clear();
 
     return new Promise((resolve) => {
-      this.wss.close(() => {
-        this.server.close(() => {
-          resolve();
+      this.externalWss.close(() => {
+        this.wss.close(() => {
+          this.server.close(() => {
+            resolve();
+          });
         });
       });
     });
@@ -204,6 +225,7 @@ export class RelayServer {
       ws,
       subdomain,
       alive: true,
+      wsConns: new Map(),
       heartbeat: setInterval(() => {
         if (!conn.alive) {
           logger.info(`Tunnel ${subdomain} failed heartbeat, disconnecting`);
@@ -235,6 +257,26 @@ export class RelayServer {
 
         if (message.type === 'tunnel-response') {
           this.handleTunnelResponse(message.response);
+          return;
+        }
+
+        if (message.type === 'tunnel-ws-data') {
+          const browserWs = conn.wsConns.get(message.frame.connId);
+          if (browserWs && browserWs.readyState === WebSocket.OPEN) {
+            browserWs.send(
+              message.frame.binary ? Buffer.from(message.frame.data, 'base64') : message.frame.data
+            );
+          }
+          return;
+        }
+
+        if (message.type === 'tunnel-ws-close' || message.type === 'tunnel-ws-error') {
+          const browserWs = conn.wsConns.get(message.connId);
+          if (browserWs) {
+            this.closeSocket(browserWs, message.type === 'tunnel-ws-close' ? message.code : undefined);
+            conn.wsConns.delete(message.connId);
+          }
+          return;
         }
       } catch {
         logger.error(`Invalid message from tunnel ${subdomain}`);
@@ -280,11 +322,76 @@ export class RelayServer {
     const conn = this.tunnels.get(subdomain);
     if (conn) {
       clearInterval(conn.heartbeat);
+      for (const browserWs of conn.wsConns.values()) {
+        this.closeSocket(browserWs, 1001, 'tunnel closed');
+      }
+      conn.wsConns.clear();
       if (conn.ws.readyState === WebSocket.OPEN) {
         conn.ws.close();
       }
       this.tunnels.delete(subdomain);
     }
+  }
+
+  private closeSocket(ws: WebSocket, code?: number, reason?: string): void {
+    try {
+      ws.close(code, reason);
+    } catch {
+      ws.terminate();
+    }
+  }
+
+  private bridgeExternalWs(
+    conn: TunnelConnection,
+    browserWs: WebSocket,
+    req: http.IncomingMessage
+  ): void {
+    const connId = crypto.randomUUID();
+    conn.wsConns.set(connId, browserWs);
+
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value) {
+        headers[key] = Array.isArray(value) ? value.join(', ') : value;
+      }
+    }
+
+    const send = (message: WSMessage): void => {
+      if (conn.ws.readyState === WebSocket.OPEN) {
+        conn.ws.send(JSON.stringify(message));
+      }
+    };
+
+    send({
+      type: 'tunnel-ws-open',
+      connId,
+      path: req.url || '/',
+      headers,
+      protocol: browserWs.protocol || undefined,
+    });
+    logger.info(`WS open: ${conn.subdomain}${req.url || '/'}`);
+
+    browserWs.on('message', (data: Buffer, isBinary: boolean) => {
+      send({
+        type: 'tunnel-ws-data',
+        frame: {
+          connId,
+          binary: isBinary,
+          data: isBinary ? data.toString('base64') : data.toString('utf8'),
+        },
+      });
+    });
+
+    browserWs.on('close', (code, reason) => {
+      send({ type: 'tunnel-ws-close', connId, code, reason: reason.toString() });
+      conn.wsConns.delete(connId);
+    });
+
+    browserWs.on('error', () => {
+      this.closeSocket(browserWs);
+      conn.wsConns.delete(connId);
+      send({ type: 'tunnel-ws-close', connId });
+    });
   }
 
   private extractSubdomain(host: string): string | null {
