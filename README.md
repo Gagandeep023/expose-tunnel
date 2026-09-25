@@ -8,11 +8,17 @@ A self-hosted tunnel to expose local servers to the internet. An alternative to 
 ## How It Works
 
 ```
-Your Machine                    Your Relay Server                Internet
-+--------------+    WebSocket   +------------------------+    HTTPS    +----------+
-| localhost:   | -------------> | tunnel.yourdomain.com  | <--------- | Browser  |
-| 3000         | <------------- | *.tunnel.yourdomain    | ---------> | requests |
-+--------------+                +------------------------+            +----------+
+Browser
+   |  HTTPS   myapp.tunnel.yourdomain.com
+   v
+Relay server on your VPS
+   |  WebSocket, opened OUTBOUND by your machine,
+   |  so no inbound port or firewall rule is needed
+   v
+expose-tunnel client on your machine
+   |  HTTP
+   v
+localhost:3000
 ```
 
 1. The client connects to your relay server via WebSocket
@@ -46,7 +52,10 @@ npm install @gagandeep023/expose-tunnel
 Or run directly with npx (no install needed):
 
 ```bash
-npx @gagandeep023/expose-tunnel --port 3000 --server wss://tunnel.yourdomain.com --api-key sk_your_key
+npx @gagandeep023/expose-tunnel \
+  --port 3000 \
+  --server wss://tunnel.yourdomain.com \
+  --api-key sk_your_key
 ```
 
 ## Quick Start
@@ -99,19 +108,27 @@ npx @gagandeep023/expose-tunnel --port 3000
 ### With --server flag (no env var needed)
 
 ```bash
-npx @gagandeep023/expose-tunnel --port 3000 --server wss://tunnel.yourdomain.com
+npx @gagandeep023/expose-tunnel \
+  --port 3000 \
+  --server wss://tunnel.yourdomain.com
 ```
 
 ### With --server and --subdomain
 
 ```bash
-npx @gagandeep023/expose-tunnel --port 3000 --server wss://tunnel.yourdomain.com --subdomain myapp
+npx @gagandeep023/expose-tunnel \
+  --port 3000 \
+  --server wss://tunnel.yourdomain.com \
+  --subdomain myapp
 ```
 
 ### With --api-key flag (no env var needed)
 
 ```bash
-npx @gagandeep023/expose-tunnel --port 3000 --server wss://tunnel.yourdomain.com --api-key sk_your_key
+npx @gagandeep023/expose-tunnel \
+  --port 3000 \
+  --server wss://tunnel.yourdomain.com \
+  --api-key sk_your_key
 ```
 
 ### All flags, no env vars
@@ -155,9 +172,10 @@ Options:
   -V, --version            output version number
   -p, --port <number>      Local port to expose (required)
   -s, --subdomain <name>   Request a specific subdomain
-  --server <url>           Relay server WebSocket URL (or set EXPOSE_TUNNEL_SERVER env var)
-  --api-key <key>          API key (or set EXPOSE_TUNNEL_API_KEY env var)
-  --local-host <host>      Local hostname to proxy to (default: localhost)
+  --server <url>           Relay server WebSocket URL
+                           (or EXPOSE_TUNNEL_SERVER)
+  --api-key <key>          API key (or EXPOSE_TUNNEL_API_KEY)
+  --local-host <host>      Local host to proxy to (default: localhost)
   -h, --help               display help for command
 ```
 
@@ -346,7 +364,8 @@ MAX_TUNNELS=10
 Generate an API key:
 
 ```bash
-node -e "console.log('sk_' + require('crypto').randomBytes(24).toString('hex'))"
+node -e "console.log('sk_' +
+  require('crypto').randomBytes(24).toString('hex'))"
 ```
 
 Create `start.js`:
@@ -382,7 +401,12 @@ curl https://tunnel.yourdomain.com/health
 Full TypeScript support with exported types:
 
 ```typescript
-import type { TunnelOptions, TunnelInstance, TunnelRequest, TunnelResponse } from '@gagandeep023/expose-tunnel';
+import type {
+  TunnelOptions,
+  TunnelInstance,
+  TunnelRequest,
+  TunnelResponse,
+} from '@gagandeep023/expose-tunnel';
 ```
 
 ## Requests and feedback
