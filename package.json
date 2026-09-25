@@ -30,6 +30,9 @@
     "start:server": "node dist/server/index.js"
   },
   "keywords": [
+    "gagan",
+    "gagandeep",
+    "gagandeep bhatia",
     "tunnel",
     "ngrok",
     "localtunnel",
